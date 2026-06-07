@@ -732,15 +732,17 @@
                 showStatus(`'${file.name}' 음원과 제목이 성공적으로 등록되었습니다.`);
             };
 
-            const showStatus = (msg) => {
-                setStatusMessage(msg);
-                setTimeout(() => setStatusMessage(''), 4000);
-            };
+          // 735번 줄부터 742번 줄까지 아래 내용으로 교체
+const generateImageWithAPI = async (prompt, targetRatio = '1:1', baseImgBase64 = null, retries = 5, delay = 1000, isRetry = false) => {
+    // 여기서 키를 다시 한번 확실하게 불러옵니다
+    const apiKey = localStorage.getItem('my_gemini_key');
+    if (!apiKey) {
+        alert("API 키가 없습니다. 페이지를 새로고침하고 키를 다시 입력하세요.");
+        return null;
+    }
 
-            const showErr = (msg) => {
-                setErrorMessage(msg);
-                setTimeout(() => setErrorMessage(''), 5000);
-            };
+    let url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+    // ... 이하 나머지 기존 코드 유지
 
             // Robust multi-model API wrapper supporting Gemini 2.5 Flash for both Image-to-Image and Text-to-Image with exponential backoff
             const generateImageWithAPI = async (prompt, targetRatio = '1:1', baseImgBase64 = null, retries = 5, delay = 1000, isRetry = false) => {
