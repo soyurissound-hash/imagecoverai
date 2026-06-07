@@ -732,7 +732,9 @@
 
             // Robust multi-model API wrapper supporting Gemini 2.5 Flash for both Image-to-Image and Text-to-Image with exponential backoff
             const generateImageWithAPI = async (prompt, targetRatio = '1:1', baseImgBase64 = null, retries = 5, delay = 1000, isRetry = false) => {
-                const apiKey = ""; 
+                // 키를 하드코딩하지 않고, 브라우저가 실행될 때마다 입력받아 메모리에만 저장
+const apiKey = localStorage.getItem('my_gemini_key') || prompt("Gemini API Key를 입력하세요:");
+if (apiKey) localStorage.setItem('my_gemini_key', apiKey); 
                 
                 let url = "";
                 let payload = {};
