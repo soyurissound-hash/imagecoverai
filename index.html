@@ -78,60 +78,61 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef } = React;
 
-        // 브라우저 실행 시 API 키 먼저 확인
-        if (!localStorage.getItem('my_gemini_key')) {
-            const key = prompt("Gemini API Key를 입력하세요:");
-            if (key) localStorage.setItem('my_gemini_key', key);
+    // 키 확인 팝업
+    if (!localStorage.getItem('my_gemini_key')) {
+        const key = prompt("Gemini API Key를 입력하세요:");
+        if (key) localStorage.setItem('my_gemini_key', key);
+    }
+
+    // 샘플 데이터 (중복 제거)
+    const SAMPLE_TRACKS = [
+        {
+            id: 'sample-1',
+            title: "새벽녘의 사이버 네온",
+            genre: "Synthwave",
+            mood: "Dreamy",
+            audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            isSample: true,
+            artwork: null,
+            artworkSource: null,
+            text: "",
+            textSize: 70,
+            textX: 50,
+            textY: 85,
+            textColor: '#ffffff',
+            textStyle: 'classic',
+            textFont: 'sans-serif',
+            textBehind: false,
+            maskType: 'dark',
+            maskTolerance: 120,
+            maskColor: '#000000'
+        },
+        {
+            id: 'sample-2',
+            title: "어쿠스틱 그리움",
+            genre: "Ballad",
+            mood: "Melancholic",
+            audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+            isSample: true,
+            artwork: null,
+            artworkSource: null,
+            text: "",
+            textSize: 70,
+            textX: 50,
+            textY: 85,
+            textColor: '#ffffff',
+            textStyle: 'classic',
+            textFont: 'sans-serif',
+            textBehind: false,
+            maskType: 'dark',
+            maskTolerance: 120,
+            maskColor: '#000000'
         }
-        
-        // Royalty free sample audios for easy testing
-// Royalty free sample audios for easy testing
-        const SAMPLE_TRACKS = [
-            {
-                id: 'sample-1',
-                title: "새벽녘의 사이버 네온",
-                genre: "Synthwave",
-                mood: "Dreamy",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                isSample: true,
-                artwork: null,
-                artworkSource: null,
-                text: "",
-                textSize: 70,
-                textX: 50,
-                textY: 85,
-                textColor: '#ffffff',
-                textStyle: 'classic',
-                textFont: 'sans-serif',
-                textBehind: false,
-                maskType: 'dark',
-                maskTolerance: 120,
-                maskColor: '#000000'
-            },
-            {
-                id: 'sample-2',
-                title: "어쿠스틱 그리움",
-                genre: "Ballad",
-                mood: "Melancholic",
-                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-                isSample: true,
-                artwork: null,
-                artworkSource: null,
-                text: "",
-                textSize: 70,
-                textX: 50,
-                textY: 85,
-                textColor: '#ffffff',
-                textStyle: 'classic',
-                textFont: 'sans-serif',
-                textBehind: false,
-                maskType: 'dark',
-                maskTolerance: 120,
-                maskColor: '#000000'
-            }
-        ];
+    ];
+
+    // ... 그 뒤로 이어지는 나머지 코드들 (App 함수 등)
        
         // Safe Image Loader Helper (CORS Optimized for Local Runs)
         const loadImage = (src) => {
