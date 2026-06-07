@@ -79,18 +79,12 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
+        
         // 브라우저 실행 시 API 키 먼저 확인
         if (!localStorage.getItem('my_gemini_key')) {
             const key = prompt("Gemini API Key를 입력하세요:");
             if (key) localStorage.setItem('my_gemini_key', key);
         }
-
-        // Royalty free sample audios for easy testing
-        const SAMPLE_TRACKS = [
-        // ... 이하 기존 코드
 
         // Royalty free sample audios for easy testing
         const SAMPLE_TRACKS = [
