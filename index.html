@@ -428,4 +428,308 @@
                     }
                 }
             } catch (error) {
-                console.error(error); showErr(`생성 실패
+                console.error(error); showErr(`생성 실패: ${error.message}`);
+            } finally { setIsGeneratingCover(false); }
+        };
+
+        const handleClearAlbumCover = () => { setAlbumCoverSource(null); setAlbumCover(null); showStatus('제거되었습니다.'); };
+
+        const handleGenerateTrackArt = async (trackId) => {
+            if (generatingTrackId) return;
+            setGeneratingTrackId(trackId); setErrorMessage('');
+            const track = tracks.find(t => t.id === trackId);
+            showStatus(`'${track.title}' 생성 중...`);
+
+            try {
+                if (protagonistImg && track.genMode === 'overlay') {
+                    applyTextOverlay(protagonistImg, track.text, trackAspectRatio, {
+                        textSize: track.textSize, textX: track.textX, textY: track.textY, textColor: track.textColor,
+                        textStyle: track.textStyle, textFont: track.textFont, textBehind: track.textBehind,
+                        maskType: track.maskType, maskTolerance: track.maskTolerance, maskColor: track.maskColor
+                    }).then(rendered => setTracks(prev => prev.map(t => t.id === trackId ? { ...t, artworkSource: protagonistImg, artwork: rendered } : t)));
+                    showStatus(`배치 완료!`);
+                } else {
+                    let prompt = `${track.genre} music vibe, ${track.mood} mood, representing ${track.title}, ${artStyle} style`;
+                    const generatedImg = await generateImageWithAPI(prompt, trackAspectRatio, protagonistImg);
+                    if(generatedImg) {
+                        applyTextOverlay(generatedImg, track.text, trackAspectRatio, {
+                            textSize: track.textSize, textX: track.textX, textY: track.textY, textColor: track.textColor,
+                            textStyle: track.textStyle, textFont: track.textFont, textBehind: track.textBehind,
+                            maskType: track.maskType, maskTolerance: track.maskTolerance, maskColor: track.maskColor
+                        }).then(rendered => setTracks(prev => prev.map(t => t.id === trackId ? { ...t, artworkSource: generatedImg, artwork: rendered } : t)));
+                        showStatus(`생성 완료!`);
+                    }
+                }
+            } catch (error) {
+                console.error(error); showErr(`생성 실패: ${error.message}`);
+            } finally { setGeneratingTrackId(null); }
+        };
+
+        const handleClearTrackArtwork = (trackId) => {
+            setTracks(prev => prev.map(t => t.id === trackId ? { ...t, artworkSource: null, artwork: null } : t));
+            showStatus('제거되었습니다.');
+        };
+
+        const handleLoadSamples = () => {
+            setTracks(prev => [...prev, ...SAMPLE_TRACKS.map(st => ({ ...st, id: 'sample-' + Date.now() + Math.random().toString(36).substr(2, 4) }))]);
+            showStatus('샘플 추가됨!');
+        };
+
+        const handleDownloadArtwork = (imgData, filename) => {
+            if (!imgData) return;
+            const link = document.createElement('a'); link.href = imgData; link.download = filename || "artwork.png";
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            showStatus('다운로드가 시작되었습니다.');
+        };
+
+        const handleCopyImage = async (dataUrl) => {
+            if (!dataUrl) return;
+            try {
+                const res = await fetch(dataUrl); const blob = await res.blob();
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                alert("이미지가 복사되었습니다!");
+            } catch (err) { alert("복사 실패: " + err); }
+        };
+
+        const activeTrack = currentTrackIndex !== null ? tracks[currentTrackIndex] : null;
+
+        return (
+            <div class="flex-grow flex flex-col animate-fade-in">
+                <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50 px-4 py-4 md:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-tr from-brand-600 to-pink-500 rounded-xl flex items-center justify-center glow-effect">
+                            <i class="fa-solid fa-music text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-brand-500 bg-clip-text text-transparent">MuseMix AI</h1>
+                            <p class="text-xs text-slate-400">주인공 기반 고품질 앨범 아트워크 생성기</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {statusMessage && <span class="bg-brand-500/15 border border-brand-500/30 text-brand-100 text-xs px-3 py-1.5 rounded-lg animate-pulse flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin"></i> {statusMessage}</span>}
+                        {errorMessage && <span class="bg-red-500/25 border border-red-500/40 text-red-100 text-xs px-3 py-1.5 rounded-lg flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> {errorMessage}</span>}
+                        <button onClick={handleLoadSamples} class="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium px-3.5 py-1.5 rounded-lg transition-all border border-slate-700/50 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-down text-brand-500"></i> 샘플 채우기
+                        </button>
+                    </div>
+                </header>
+
+                <main class="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <section class="lg:col-span-5 flex flex-col gap-6">
+                        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
+                            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><span class="text-brand-500"><i class="fa-solid fa-user-astronaut"></i></span> 1단계: 주인공 캐릭터 올리기</h2>
+                            <div class="flex gap-4 items-center">
+                                <label class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-brand-500/50 bg-slate-950/40 hover:bg-slate-900/40 rounded-xl p-5 cursor-pointer transition-all group">
+                                    <input type="file" accept="image/*" onChange={handleProtagonistUpload} class="hidden" />
+                                    <i class="fa-solid fa-cloud-arrow-up text-slate-500 group-hover:text-brand-500 text-2xl mb-2 transition-colors"></i>
+                                    <span class="text-xs font-semibold text-slate-300 group-hover:text-white">사진 업로드</span>
+                                </label>
+                                {protagonistImg ? (
+                                    <div class="relative w-24 h-24 rounded-xl border border-slate-700 bg-slate-950 flex-shrink-0 group">
+                                        <img src={protagonistImg} class="w-full h-full object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setExpandedImg(protagonistImg)} />
+                                        <button onClick={() => setProtagonistImg(null)} class="absolute bottom-1 right-1 bg-red-600 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg transition-colors cursor-pointer animate-fade-in"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
+                                    </div>
+                                ) : (
+                                    <div class="w-24 h-24 rounded-xl border border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center text-slate-600 text-center p-2 flex-shrink-0"><i class="fa-solid fa-image-portrait text-xl mb-1"></i></div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
+                            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><span class="text-brand-500"><i class="fa-solid fa-wand-magic-sparkles"></i></span> 2단계: 앨범 무드 및 스타일 설정</h2>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5">앨범 이름</label>
+                                    <input type="text" value={albumTitle} onChange={(e) => setAlbumTitle(e.target.value)} class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500/80" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5">아트워크 스타일</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        {[{ id: 'Cinematic', label: '🎬 실사' }, { id: 'Anime', label: '🎨 애니메이션' }, { id: 'Cyberpunk', label: '⚡ 사이버펑크' }, { id: 'Watercolor', label: '💧 수채화' }].map(style => (
+                                            <button key={style.id} onClick={() => setArtStyle(style.id)} class={`py-2 px-3 text-xs font-medium rounded-lg border transition-all text-center ${artStyle === style.id ? 'bg-brand-500/20 border-brand-500 text-brand-100 shadow-lg shadow-brand-500/10' : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200'}`}>{style.label}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5">수록곡 이미지 비율</label>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        {[{ id: '1:1', label: '1:1' }, { id: '16:9', label: '16:9' }, { id: '9:16', label: '9:16' }, { id: '4:3', label: '4:3' }].map(ratio => (
+                                            <button key={ratio.id} onClick={() => setTrackAspectRatio(ratio.id)} class={`py-2 px-1 text-xs font-medium rounded-lg border transition-all text-center flex flex-col items-center justify-center ${trackAspectRatio === ratio.id ? 'bg-brand-500/20 border-brand-500 text-brand-100 shadow-lg shadow-brand-500/10' : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200'}`}><span class="font-bold">{ratio.label}</span></button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur font-sans">
+                            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><span class="text-brand-500"><i class="fa-solid fa-wand-magic-sparkles"></i></span> 대표 썸네일 아트워크 생성</h2>
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5">프롬프트</label>
+                                <textarea value={coverPrompt} onChange={(e) => setCoverPrompt(e.target.value)} rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500/80 resize-none" />
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5">썸네일 비율</label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    {[{ id: '1:1', label: '1:1' }, { id: '16:9', label: '16:9' }, { id: '9:16', label: '9:16' }, { id: '4:3', label: '4:3' }].map(ratio => (
+                                        <button key={ratio.id} onClick={() => setCoverAspectRatio(ratio.id)} class={`py-2 px-1 text-xs font-medium rounded-lg border transition-all text-center ${coverAspectRatio === ratio.id ? 'bg-brand-500/20 border-brand-500 text-brand-100' : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200'}`}><span class="font-bold">{ratio.label}</span></button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5">적용 방식</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button onClick={() => setCoverGenMode('ai')} class={`py-2 px-2 text-xs font-semibold rounded-lg border transition-all text-center ${coverGenMode === 'ai' ? 'bg-brand-500/20 border-brand-500 text-brand-100' : 'bg-slate-950/80 border-slate-800 text-slate-400'}`}>🌌 AI 융합</button>
+                                    <button onClick={() => setCoverGenMode('overlay')} class={`py-2 px-2 text-xs font-semibold rounded-lg border transition-all text-center ${coverGenMode === 'overlay' ? 'bg-brand-500/20 border-brand-500 text-brand-100' : 'bg-slate-950/80 border-slate-800 text-slate-400'}`}>🖼️ 단순 합성</button>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5">입힐 글자 (선택)</label>
+                                <input type="text" value={coverText} onChange={(e) => setCoverText(e.target.value)} class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500/80" placeholder="텍스트 입력" />
+                            </div>
+
+                            {coverText && coverText.trim() !== "" && (
+                                <div class="mb-4 p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
+                                    <span class="text-xs font-bold text-brand-300"><i class="fa-solid fa-sliders"></i> 꾸미기 옵션</span>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div><select value={coverTextFont} onChange={(e) => setCoverTextFont(e.target.value)} class="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[11px] text-slate-300"><option value="sans-serif">고딕</option><option value="serif">명조</option><option value="cursive">손글씨</option></select></div>
+                                        <div><select value={coverTextStyle} onChange={(e) => setCoverTextStyle(e.target.value)} class="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[11px] text-slate-300"><option value="classic">그림자</option><option value="glowing">발광</option><option value="boxed">박스</option><option value="outline">테두리</option></select></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button onClick={() => setCoverTextBehind(false)} class={`py-1.5 px-2 text-xs rounded border ${!coverTextBehind ? 'bg-brand-600/30 border-brand-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>앞면</button>
+                                        <button onClick={() => setCoverTextBehind(true)} class={`py-1.5 px-2 text-xs rounded border ${coverTextBehind ? 'bg-brand-600/30 border-brand-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>캐릭터 뒤로</button>
+                                    </div>
+                                    <div class="space-y-3 pt-1">
+                                        <input type="range" min="20" max="300" value={coverTextSize} onChange={(e) => setCoverTextSize(parseInt(e.target.value))} class="w-full accent-brand-500 h-1 bg-slate-800 rounded-lg appearance-none" />
+                                        <input type="range" min="5" max="95" value={coverTextX} onChange={(e) => setCoverTextX(parseInt(e.target.value))} class="w-full accent-brand-500 h-1 bg-slate-800 rounded-lg appearance-none" />
+                                        <input type="range" min="10" max="95" value={coverTextY} onChange={(e) => setCoverTextY(parseInt(e.target.value))} class="w-full accent-brand-500 h-1 bg-slate-800 rounded-lg appearance-none" />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div class="mb-4 p-3 bg-slate-950/40 border border-slate-800/80 rounded-xl flex gap-3 items-center">
+                                <label class="flex-grow flex items-center justify-center border border-dashed border-slate-700 bg-slate-950/60 rounded-lg p-2.5 cursor-pointer">
+                                    <input type="file" accept="image/*" onChange={handleCoverRefUpload} class="hidden" />
+                                    <span class="text-[11px] text-slate-300">참고 자료 이미지 첨부</span>
+                                </label>
+                                {coverRefImg && <img src={coverRefImg} class="w-10 h-10 rounded-lg object-cover" onClick={() => setCoverRefImg(null)} />}
+                            </div>
+
+                            {albumCover ? (
+                                <div class="space-y-4 border-t border-slate-800/60 pt-4">
+                                    <img src={albumCover} class="w-full rounded-xl" onClick={() => setExpandedImg(albumCover)} />
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button onClick={() => handleDownloadArtwork(albumCover, `${albumTitle}.png`)} class="py-2 bg-slate-800 text-white font-bold text-xs rounded-lg"><i class="fa-solid fa-download"></i> 다운로드</button>
+                                        <button onClick={handleGenerateAlbumCover} disabled={isGeneratingCover} class="py-2 bg-brand-600 text-white font-bold text-xs rounded-lg">{isGeneratingCover ? '생성 중...' : '다시 그리기'}</button>
+                                    </div>
+                                    <button onClick={() => handleCopyImage(albumCover)} class="w-full py-2 bg-brand-500 text-white font-bold text-xs rounded-lg"><i class="fa-solid fa-copy"></i> 복사하기</button>
+                                    <button onClick={handleClearAlbumCover} class="w-full py-2 bg-red-600/20 text-red-200 text-xs rounded-lg"><i class="fa-solid fa-trash"></i> 지우기</button>
+                                </div>
+                            ) : (
+                                <button onClick={handleGenerateAlbumCover} disabled={isGeneratingCover} class="w-full mt-4 py-2.5 bg-brand-600 text-white font-bold text-xs rounded-lg">{isGeneratingCover ? '생성 중...' : '썸네일 생성'}</button>
+                            )}
+                        </div>
+                    </section>
+
+                    <section class="lg:col-span-7 flex flex-col gap-6">
+                        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur flex-grow">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-bold text-white"><span class="text-brand-500"><i class="fa-solid fa-compact-disc"></i></span> 3단계: 수록곡 관리</h2>
+                                <button onClick={handleAddTrack} class="py-1.5 px-3 bg-slate-800 text-white font-semibold rounded-lg text-xs"><i class="fa-solid fa-plus text-brand-500"></i> 트랙 추가</button>
+                            </div>
+                            <div class="space-y-4 max-h-[620px] overflow-y-auto pr-2">
+                                {tracks.map((track, idx) => {
+                                    const isPlayingThis = currentTrackIndex === tracks.indexOf(track) && isPlaying;
+                                    return (
+                                        <div key={track.id} class={`p-4 rounded-xl border ${isPlayingThis ? 'bg-slate-800/40 border-brand-500/50' : 'bg-slate-950/50 border-slate-800/80'}`}>
+                                            <div class="flex justify-between mb-3">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-5 h-5 bg-slate-800 text-[10px] text-slate-300 rounded-full flex items-center justify-center">{idx + 1}</span>
+                                                    <input type="text" value={track.title} onChange={(e) => updateTrackField(track.id, 'title', e.target.value)} class="bg-transparent text-sm font-bold text-white focus:outline-none" />
+                                                </div>
+                                                <button onClick={() => handleRemoveTrack(track.id)} class="text-slate-500 hover:text-red-400"><i class="fa-solid fa-circle-minus"></i></button>
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                                <select value={track.genre} onChange={(e) => updateTrackField(track.id, 'genre', e.target.value)} class="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded p-1"><option value="Ballad">발라드</option><option value="K-Pop">K-Pop</option><option value="Synthwave">신스웨이브</option><option value="Rock">락/메탈</option><option value="EDM">EDM</option></select>
+                                                <select value={track.mood} onChange={(e) => updateTrackField(track.id, 'mood', e.target.value)} class="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded p-1"><option value="Melancholic">우울함</option><option value="Dreamy">몽환적</option><option value="Energetic">에너제틱</option><option value="Romantic">감성적</option></select>
+                                                <label class="bg-slate-900 border border-slate-800 rounded p-1 text-[11px] text-slate-400 text-center cursor-pointer"><input type="file" accept="audio/*" onChange={(e) => handleTrackAudioUpload(track.id, e)} class="hidden" />음원 등록</label>
+                                            </div>
+                                            <input type="text" value={track.text || ''} onChange={(e) => updateTrackField(track.id, 'text', e.target.value)} class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 mb-2" placeholder="이미지에 새길 텍스트" />
+                                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                                <button onClick={() => updateTrackField(track.id, 'genMode', 'ai')} class={`py-1 px-2 text-[11px] rounded border ${track.genMode === 'ai' ? 'bg-brand-500/20 border-brand-500 text-brand-100' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>AI 맞춤 생성</button>
+                                                <button onClick={() => updateTrackField(track.id, 'genMode', 'overlay')} class={`py-1 px-2 text-[11px] rounded border ${track.genMode === 'overlay' ? 'bg-brand-500/20 border-brand-500 text-brand-100' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>단순 합성</button>
+                                            </div>
+                                            
+                                            {track.artwork ? (
+                                                <div class="mt-3 flex gap-4 bg-slate-950/60 p-2 rounded-lg border border-slate-800/40">
+                                                    <img src={track.artwork} class="w-24 h-24 object-cover rounded-lg cursor-zoom-in" onClick={() => setExpandedImg(track.artwork)} />
+                                                    <div class="flex-grow flex flex-col justify-between">
+                                                        <div class="flex gap-2">
+                                                            <button onClick={() => handleDownloadArtwork(track.artwork, `${track.title}.png`)} class="flex-1 bg-slate-800 text-white text-[11px] py-1 rounded">다운</button>
+                                                            <button onClick={() => handleCopyImage(track.artwork)} class="flex-1 bg-brand-600 text-white text-[11px] py-1 rounded">복사</button>
+                                                        </div>
+                                                        <div class="flex gap-2 mt-1">
+                                                            <button onClick={() => handleGenerateTrackArt(track.id)} disabled={generatingTrackId !== null} class="flex-1 bg-brand-600/20 text-brand-200 text-[11px] py-1 rounded border border-brand-500/40">재생성</button>
+                                                            <button onClick={() => handleClearTrackArtwork(track.id)} class="bg-red-600/20 text-red-300 text-[11px] px-2 py-1 rounded border border-red-500/30">삭제</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => handleGenerateTrackArt(track.id)} disabled={generatingTrackId !== null} class="w-full mt-2 py-2 bg-brand-600 text-white text-xs rounded-lg">{generatingTrackId === track.id ? '생성 중...' : '이미지 생성'}</button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </section>
+                </main>
+
+                <footer class="mt-auto border-t border-slate-800 bg-slate-950/95 py-6 px-4 md:px-8 shadow-2xl sticky bottom-0 z-40 backdrop-blur-md">
+                    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        <div class="md:col-span-4 flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+                                {activeTrack?.artwork ? <img src={activeTrack.artwork} class="w-full h-full object-cover" /> : albumCover ? <img src={albumCover} class="w-full h-full object-cover" /> : <div class="w-full h-full flex items-center justify-center"><i class="fa-solid fa-compact-disc text-2xl text-slate-700 animate-spin-slow"></i></div>}
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">{activeTrack ? activeTrack.title : "재생 중인 곡 없음"}</h4>
+                                <p class="text-xs text-slate-400">{activeTrack ? `${activeTrack.genre} • ${activeTrack.mood}` : ""}</p>
+                            </div>
+                        </div>
+                        <div class="md:col-span-5 flex flex-col items-center gap-2">
+                            <audio ref={audioRef} src={activeTrack ? activeTrack.audioUrl : ""} onTimeUpdate={onTimeUpdate} onLoadedMetadata={onLoadedMetadata} onEnded={() => setIsPlaying(false)} crossOrigin="anonymous" />
+                            <div class="flex items-center gap-4">
+                                <button onClick={() => { if(currentTrackIndex > 0) handleTrackSelect(currentTrackIndex-1); }} disabled={currentTrackIndex === null || currentTrackIndex === 0} class="text-slate-400 hover:text-white"><i class="fa-solid fa-backward-step"></i></button>
+                                <button onClick={() => { if(currentTrackIndex !== null) setIsPlaying(!isPlaying); else if (tracks.length > 0) handleTrackSelect(0); }} class="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center">{isPlaying ? <i class="fa-solid fa-pause"></i> : <i class="fa-solid fa-play ml-1"></i>}</button>
+                                <button onClick={() => { if(currentTrackIndex < tracks.length - 1) handleTrackSelect(currentTrackIndex+1); }} disabled={currentTrackIndex === null || currentTrackIndex === tracks.length - 1} class="text-slate-400 hover:text-white"><i class="fa-solid fa-forward-step"></i></button>
+                            </div>
+                            <div class="w-full flex items-center gap-2 text-[10px] text-slate-400">
+                                <span>{formatTime(currentTime)}</span>
+                                <input type="range" min="0" max={duration || 100} value={currentTime} onChange={(e) => { const v = parseFloat(e.target.value); if(audioRef.current){ audioRef.current.currentTime = v; setCurrentTime(v); } }} class="flex-grow accent-brand-500 h-1 bg-slate-800 rounded cursor-pointer" />
+                                <span>{formatTime(duration)}</span>
+                            </div>
+                        </div>
+                        <div class="md:col-span-3 flex items-center justify-center">
+                            {isPlaying ? <canvas ref={canvasRef} class="w-full max-h-[50px] opacity-80"></canvas> : <div class="text-xs text-slate-600 border border-dashed border-slate-800 rounded py-2 px-4 text-center w-full">오디오 시각화 대기중</div>}
+                        </div>
+                    </div>
+                </footer>
+
+                {expandedImg && (
+                    <div class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md cursor-zoom-out" onClick={() => setExpandedImg(null)}>
+                        <div class="relative flex flex-col items-center">
+                            <img src={expandedImg} class="max-h-[85vh] rounded-xl object-contain shadow-2xl border border-slate-800" />
+                            <div class="mt-4 flex gap-3">
+                                <button onClick={(e) => { e.stopPropagation(); handleDownloadArtwork(expandedImg, 'expanded.png'); }} class="px-4 py-2 bg-brand-600 text-white rounded text-xs font-bold"><i class="fa-solid fa-download"></i> 다운로드</button>
+                                <button onClick={(e) => { e.stopPropagation(); handleCopyImage(expandedImg); }} class="px-4 py-2 bg-brand-500 text-white rounded text-xs font-bold"><i class="fa-solid fa-copy"></i> 복사하기</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+   </script>
+</body>
+</html>
