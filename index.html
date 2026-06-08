@@ -729,69 +729,37 @@
             };
 
             // Robust multi-model API wrapper supporting Gemini 2.5 Flash for both Image-to-Image and Text-to-Image with exponential backoff
-            const generateImageWithAPI = async (prompt, targetRatio = '1:1', baseImgBase64 = null, retries = 5, delay = 1000, isRetry = false) => {
-                // 키를 하드코딩하지 않고, 브라우저가 실행될 때마다 입력받아 메모리에만 저장
-const apiKey = localStorage.getItem('my_gemini_key') || prompt("Gemini API Key를 입력하세요:");
-if (apiKey) localStorage.setItem('my_gemini_key', apiKey); 
-                
-                let url = "";
-                let payload = {};
-                const isImageToImage = !!baseImgBase64;
+           // 4. 무료 이미지 생성 API (Pollinations)로 진짜 그림 그리기
+        const generateImageWithAPI = async (prompt, targetRatio = '1:1', baseImgBase64 = null) => {
+            // 로딩 상태 보여주기
+            console.log("이미지 생성 시작:", prompt);
 
-                // Use Gemini 1.5 Pro to process the prompt into a tool action call for dalle.text2im
-                url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
-                
-                let ratioDesc = "1:1";
-                if (targetRatio === "16:9") ratioDesc = "16:9";
-                else if (targetRatio === "9:16") ratioDesc = "9:16";
-                else if (targetRatio === "4:3") ratioDesc = "4:3";
+            // 비율에 맞춰 사이즈 정하기
+            let w = 1024, h = 1024;
+            if (targetRatio === '16:9') { w = 1280; h = 720; }
+            else if (targetRatio === '9:16') { w = 720; h = 1280; }
+            else if (targetRatio === '4:3') { w = 1024; h = 768; }
 
-                let enhancedPrompt = "";
-                if (isImageToImage && !isRetry) {
-                    enhancedPrompt = `
-                        Style: ${artStyle}.
-                        Instruction: Look at the main subject/character in the reference image. Generate a new premium image keeping the identical facial features and main subject traits, but completely replace the setting, clothing, and background to match the following description perfectly: "${prompt}".
-                        Strictly textless, no letters, no titles, and no text.
-                        Aspect Ratio: ${ratioDesc}.
-                    `;
-                } else {
-                    enhancedPrompt = isRetry ? prompt : `Generate an image of ${prompt}. Style: ${artStyle}. Strictly textless. Do NOT generate any letters, characters, watermarks, signatures, titles, or words. This background scene must fit ${ratioDesc}. Aspect Ratio: ${ratioDesc}.`;
-                }
+            // 영어 프롬프트와 스타일을 합쳐서 API에 요청 (무료, 키 필요 없음)
+            const finalPrompt = prompt + ", " + artStyle + " style, highly detailed, masterpiece, beautiful, no text, no watermark";
+            const encodedPrompt = encodeURIComponent(finalPrompt);
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&nologo=true`;
 
-                // Since we don't have direct access to image generation models through this API key in this environment, 
-                // we will fallback to a simulated response or a placeholder if the actual API call fails.
-                // We'll still try the Gemini API in case it's configured for image generation.
-                
-                // Fallback implementation if actual image generation fails
-                const createPlaceholderImage = (width, height, text) => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    
-                    // Background
-                    ctx.fillStyle = '#1e293b'; // slate-800
-                    ctx.fillRect(0, 0, width, height);
-                    
-                    // Grid pattern for texture
-                    ctx.strokeStyle = '#334155'; // slate-700
-                    ctx.lineWidth = 2;
-                    for(let i=0; i<width; i+=40) {
-                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
-                    }
-                    for(let i=0; i<height; i+=40) {
-                        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke();
-                    }
-
-                    // Text
-                    ctx.fillStyle = '#94a3b8'; // slate-400
-                    ctx.font = 'bold 40px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(text || 'Image Generated', width/2, height/2);
-                    
-                    return canvas.toDataURL('image/png');
-                };
+            try {
+                // 이미지를 다운로드해서 화면에 띄울 수 있게 변환 (CORS 에러 방지)
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (err) {
+                console.error("이미지 생성 실패:", err);
+                alert("이미지 서버와 연결할 수 없습니다.");
+                return null;
+            }
+        };
 
                 // Calculate dimensions based on ratio
                 let w = 1024, h = 1024;
