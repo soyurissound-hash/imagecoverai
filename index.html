@@ -389,6 +389,8 @@
 
         function App() {
             // State management
+            const showStatus = (msg) => setStatusMessage(msg);
+    const showErr = (msg) => setErrorMessage(msg);
             const [protagonistImg, setProtagonistImg] = useState(null); // Base64 protagonist reference
             const [artStyle, setArtStyle] = useState('Watercolor');
             const [trackAspectRatio, setTrackAspectRatio] = useState('1:1'); 
